@@ -1,91 +1,78 @@
 package com.github.regularrabbit05.voicefix;
 
 import club.minnced.discord.jdave.interop.JDaveSessionFactory;
+import com.github.regularrabbit05.voicefix.listeners.CustomConnectionListener;
+import com.github.regularrabbit05.voicefix.listeners.EventListener;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.Region;
 import net.dv8tion.jda.api.audio.AudioModuleConfig;
+import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.managers.AudioManager;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.cache.CacheFlag;
+import org.slf4j.LoggerFactory;
 
-import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 
 public class BotInstance extends ListenerAdapter {
-    private final static int PING_THRESHOLD = 2000;
-    private final static String ENV_VAR = "BOT_TOKENS";
-    private final static String ENV_SEPARATOR = ",";
-
-    private static boolean isAnyBotIn(VoiceChannel vc, List<Long> bots) {
-        return vc.getMembers().stream().anyMatch(u -> bots.contains(u.getIdLong()));
-    }
-
-    static void main(String[] args) {
-        try {
-            if (args.length == 0) args = System.getenv(ENV_VAR).split(ENV_SEPARATOR);
-        } catch (Exception ignored) {
-            System.out.println("Usage: java -jar voicefix.jar [token1] [token2] ...");
-            System.exit(1);
-        }
-        final HashMap<Long, Long> channelPings = new HashMap<>();
-        final LinkedList<BotInstance> bots = new LinkedList<>();
-        for (String token : args) bots.push(new BotInstance(token, channelPings));
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> bots.forEach(BotInstance::shutdown)));
-
-        final Runnable scheduler = () -> {
-            List<Long> botIds = bots.stream().map(b -> b.getJDA().getSelfUser().getIdLong()).toList();
-            List<BotInstance> available = bots.stream().filter(BotInstance::isAvailable).toList();
-            available.stream().findFirst().ifPresent(
-                first -> first.getJDA().getGuilds().forEach(g -> {
-                    final List<VoiceChannel> channels = g.getVoiceChannels().stream().filter(vc -> vc.getMembers().size() > 1).filter(vc -> !isAnyBotIn(vc, botIds)).sorted(Comparator.comparingInt(vc -> vc.getMembers().size())).limit(available.size()).toList();
-                    for (int i = 0; i < channels.size(); i++) available.get(i).joinChannel(channels.get(i));
-                })
-            );
-        };
-        @SuppressWarnings("resource") ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-        executor.scheduleAtFixedRate(scheduler, 5, 5, TimeUnit.SECONDS);
-    }
+    private static int botID = 0;
 
     private final HashMap<Long, Long> channelPings;
-    private static int botID = 0;
+    private final int pingThreshold;
     private JDA jda;
     private boolean isReady = false;
     private AudioManager audioManager = null;
 
     public void updateChannelPing(final Long channelId, final Long ping) {
+        if (jda == null) return;
         Long previous;
         synchronized (channelPings) { previous = channelPings.put(channelId, ping); }
+
+        jda.getPresence().setStatus(OnlineStatus.ONLINE);
+        jda.getPresence().setActivity(Activity.customStatus("Ping: " + ping + "ms"));
 
         if (previous == null) return;
         final VoiceChannel vc = jda.getVoiceChannelById(channelId);
         if (vc == null) return;
-        if (ping < PING_THRESHOLD || previous < PING_THRESHOLD) return;
+        if (ping < pingThreshold || previous < pingThreshold) return;
         final Region current = vc.getRegion();
         final ArrayList<Region> regions = new ArrayList<>(Arrays.stream(Region.values()).filter(r -> !r.isVip()).toList());
         regions.remove(current);
         regions.remove(Region.AUTOMATIC);
         Region randomRegion = regions.get(ThreadLocalRandom.current().nextInt(regions.size()));
         if (current ==  Region.AUTOMATIC || current == Region.UNKNOWN) randomRegion = Region.SOUTH_AFRICA;
-        System.out.println("Moving channel " + vc.getName() + " to region " +  randomRegion.getName() + " from " + current.getName());
         vc.getManager().setRegion(randomRegion).queue(_ -> {
             synchronized (channelPings) { channelPings.remove(channelId); }
             vc.getManager().setRegion(current).queue(_ -> { synchronized (channelPings) { channelPings.remove(channelId); } });
         });
+        LoggerFactory.getLogger(this.getClass()).info("Moving channel {} to region {} from {}", vc.getName(), randomRegion.getName(), current.getName());
     }
 
-    public BotInstance(String token, HashMap<Long, Long> channelPings) {
+    public BotInstance(final String token, final HashMap<Long, Long> channelPings, final int pingThreshold) {
+        this.pingThreshold = pingThreshold;
         this.channelPings = channelPings;
         this.jda = null;
-        final Thread task = new Thread(() -> jda = JDABuilder.createDefault(token).enableCache(CacheFlag.VOICE_STATE)
-                .enableIntents(GatewayIntent.GUILD_VOICE_STATES).addEventListeners(new EventListener(this))
-                .setAudioModuleConfig(new AudioModuleConfig().withDaveSessionFactory(new JDaveSessionFactory()))
-                .build(), "JDA-BOT-" + botID++);
+        final int botID = BotInstance.botID++;
+        final Thread task = new Thread(() -> {
+            try {
+                jda = JDABuilder.createDefault(token).enableCache(CacheFlag.VOICE_STATE)
+                        .enableIntents(GatewayIntent.GUILD_VOICE_STATES).addEventListeners(new EventListener(this))
+                        .setAudioModuleConfig(new AudioModuleConfig().withDaveSessionFactory(new JDaveSessionFactory()))
+                        .setActivity(null)
+                        .setStatus(OnlineStatus.IDLE)
+                        .build().awaitReady();
+            } catch (InterruptedException e) {
+                jda = null;
+                LoggerFactory.getLogger(this.getClass()).error("Error for bot {}", botID, e);
+            }
+        }, "JDA-BOT-" + botID);
         task.setDaemon(false);
         task.start();
     }
@@ -119,14 +106,18 @@ public class BotInstance extends ListenerAdapter {
     }
 
     public void leaveChannel() {
+        if (jda == null) return;
         synchronized (this) {
             if (audioManager == null) return;
             audioManager.closeAudioConnection();
             audioManager = null;
         }
+        jda.getPresence().setActivity(null);
+        jda.getPresence().setStatus(OnlineStatus.IDLE);
     }
 
     public void joinChannel(VoiceChannel channel) {
+        if (jda == null) return;
         leaveChannel();
         synchronized (this) {
             AudioManager manager = channel.getGuild().getAudioManager();
@@ -136,6 +127,8 @@ public class BotInstance extends ListenerAdapter {
             manager.setSelfMuted(true);
             audioManager = manager;
         }
+        jda.getPresence().setActivity(null);
+        jda.getPresence().setStatus(OnlineStatus.ONLINE);
     }
 
     public AudioManager getAudioManager() {

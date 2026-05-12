@@ -1,5 +1,6 @@
-package com.github.regularrabbit05.voicefix;
+package com.github.regularrabbit05.voicefix.listeners;
 
+import com.github.regularrabbit05.voicefix.BotInstance;
 import net.dv8tion.jda.api.audio.hooks.ListenerProxy;
 
 public class CustomConnectionListener extends ListenerProxy {

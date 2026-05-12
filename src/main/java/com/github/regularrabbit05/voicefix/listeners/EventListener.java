@@ -1,5 +1,6 @@
-package com.github.regularrabbit05.voicefix;
+package com.github.regularrabbit05.voicefix.listeners;
 
+import com.github.regularrabbit05.voicefix.BotInstance;
 import net.dv8tion.jda.api.entities.channel.unions.AudioChannelUnion;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;

@@ -26,13 +26,13 @@ public class EventListener extends ListenerAdapter {
         if (botsChannel.getIdLong() != event.getChannelLeft().getIdLong()) return;
         if (event.getEntity().getIdLong() == event.getJDA().getSelfUser().getIdLong()) {
             bot.unCacheChannel(botsChannel.getIdLong());
-            bot.leaveChanel();
+            bot.leaveChannel();
             return;
         }
 
         if (event.getChannelLeft().getMembers().stream().allMatch(m -> m.getUser().isBot())) {
             bot.unCacheChannel(botsChannel.getIdLong());
-            bot.leaveChanel();
+            bot.leaveChannel();
         }
     }
 }

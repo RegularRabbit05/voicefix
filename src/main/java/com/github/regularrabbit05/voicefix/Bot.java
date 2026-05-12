@@ -118,7 +118,7 @@ public class Bot extends ListenerAdapter {
         isReady = true;
     }
 
-    public void leaveChanel() {
+    public void leaveChannel() {
         synchronized (this) {
             if (audioManager == null) return;
             audioManager.closeAudioConnection();
@@ -127,7 +127,7 @@ public class Bot extends ListenerAdapter {
     }
 
     public void joinChannel(VoiceChannel channel) {
-        leaveChanel();
+        leaveChannel();
         synchronized (this) {
             AudioManager manager = channel.getGuild().getAudioManager();
             manager.setConnectionListener(new CustomConnectionListener(this, channel.getIdLong()));

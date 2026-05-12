@@ -97,6 +97,18 @@
         </dependency>
         <dependency>
             <groupId>club.minnced</groupId>
+            <artifactId>jdave-native-linux-x86-64</artifactId>
+            <version>0.1.8</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>jdave-native-linux-aarch64</artifactId>
+            <version>0.1.8</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
             <artifactId>jdave-api</artifactId>
             <version>0.1.8</version>
             <scope>compile</scope>

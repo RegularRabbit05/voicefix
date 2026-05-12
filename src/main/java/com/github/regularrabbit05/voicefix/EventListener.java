@@ -7,32 +7,32 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 
 public class EventListener extends ListenerAdapter {
-    private final Bot bot;
-    public EventListener(Bot bot) {
-        this.bot = bot;
+    private final BotInstance botInstance;
+    public EventListener(BotInstance botInstance) {
+        this.botInstance = botInstance;
     }
 
     @Override
     public void onReady(@NotNull ReadyEvent event) {
-        bot.setReady();
+        botInstance.setReady();
     }
 
     @Override
     public void onGuildVoiceUpdate(@NotNull GuildVoiceUpdateEvent event) {
-        if (bot.isAvailable()) return;
-        AudioChannelUnion botsChannel = bot.getAudioManager().getConnectedChannel();
+        if (botInstance.isAvailable()) return;
+        AudioChannelUnion botsChannel = botInstance.getAudioManager().getConnectedChannel();
         AudioChannelUnion oldChannel = event.getChannelLeft();
         if (botsChannel == null || oldChannel == null) return;
         if (botsChannel.getIdLong() != event.getChannelLeft().getIdLong()) return;
         if (event.getEntity().getIdLong() == event.getJDA().getSelfUser().getIdLong()) {
-            bot.unCacheChannel(botsChannel.getIdLong());
-            bot.leaveChannel();
+            botInstance.unCacheChannel(botsChannel.getIdLong());
+            botInstance.leaveChannel();
             return;
         }
 
         if (event.getChannelLeft().getMembers().stream().filter(m -> !m.getUser().isBot()).count() <= 1) {
-            bot.unCacheChannel(botsChannel.getIdLong());
-            bot.leaveChannel();
+            botInstance.unCacheChannel(botsChannel.getIdLong());
+            botInstance.leaveChannel();
         }
     }
 }

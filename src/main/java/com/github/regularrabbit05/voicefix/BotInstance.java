@@ -17,7 +17,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-public class Bot extends ListenerAdapter {
+public class BotInstance extends ListenerAdapter {
     private final static int PING_THRESHOLD = 2000;
     private final static String ENV_VAR = "BOT_TOKENS";
     private final static String ENV_SEPARATOR = ",";
@@ -34,13 +34,13 @@ public class Bot extends ListenerAdapter {
             System.exit(1);
         }
         final HashMap<Long, Long> channelPings = new HashMap<>();
-        final LinkedList<Bot> bots = new LinkedList<>();
-        for (String token : args) bots.push(new Bot(token, channelPings));
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> bots.forEach(Bot::shutdown)));
+        final LinkedList<BotInstance> bots = new LinkedList<>();
+        for (String token : args) bots.push(new BotInstance(token, channelPings));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> bots.forEach(BotInstance::shutdown)));
 
         final Runnable scheduler = () -> {
             List<Long> botIds = bots.stream().map(b -> b.getJDA().getSelfUser().getIdLong()).toList();
-            List<Bot> available = bots.stream().filter(Bot::isAvailable).toList();
+            List<BotInstance> available = bots.stream().filter(BotInstance::isAvailable).toList();
             available.stream().findFirst().ifPresent(
                 first -> first.getJDA().getGuilds().forEach(g -> {
                     final List<VoiceChannel> channels = g.getVoiceChannels().stream().filter(vc -> vc.getMembers().size() > 1).filter(vc -> !isAnyBotIn(vc, botIds)).sorted(Comparator.comparingInt(vc -> vc.getMembers().size())).limit(available.size()).toList();
@@ -79,7 +79,7 @@ public class Bot extends ListenerAdapter {
         });
     }
 
-    public Bot(String token, HashMap<Long, Long> channelPings) {
+    public BotInstance(String token, HashMap<Long, Long> channelPings) {
         this.channelPings = channelPings;
         this.jda = null;
         final Thread task = new Thread(() -> jda = JDABuilder.createDefault(token).enableCache(CacheFlag.VOICE_STATE)

@@ -36,11 +36,15 @@ public class BotInstance extends ListenerAdapter {
         synchronized (channelPings) { previous = channelPings.put(channelId, ping); }
 
         jda.getPresence().setStatus(OnlineStatus.ONLINE);
-        jda.getPresence().setActivity(Activity.customStatus("Ping: " + ping + "ms"));
+
+        final VoiceChannel vc = jda.getVoiceChannelById(channelId);
+        if (vc == null) {
+            jda.getPresence().setActivity(null);
+            return;
+        }
+        jda.getPresence().setActivity(Activity.customStatus(vc.getName() + "'s ping: " + ping + "ms"));
 
         if (previous == null) return;
-        final VoiceChannel vc = jda.getVoiceChannelById(channelId);
-        if (vc == null) return;
         if (ping < pingThreshold || previous < pingThreshold) return;
         final Region current = vc.getRegion();
         final ArrayList<Region> regions = new ArrayList<>(Arrays.stream(Region.values()).filter(r -> !r.isVip()).toList());
@@ -52,7 +56,7 @@ public class BotInstance extends ListenerAdapter {
             synchronized (channelPings) { channelPings.remove(channelId); }
             vc.getManager().setRegion(current).queue(_ -> { synchronized (channelPings) { channelPings.remove(channelId); } });
         });
-        LoggerFactory.getLogger(this.getClass()).info("Moving channel {} to region {} from {}", vc.getName(), randomRegion.getName(), current.getName());
+        LoggerFactory.getLogger(this.getClass()).info("Moving channel {} to region {} from {} due to high ping: {}", vc.getName(), randomRegion.getName(), current.getName(), (ping + previous / 2));
     }
 
     public BotInstance(final String token, final HashMap<Long, Long> channelPings, final int pingThreshold) {

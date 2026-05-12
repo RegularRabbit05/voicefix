@@ -30,7 +30,7 @@ public class EventListener extends ListenerAdapter {
             return;
         }
 
-        if (event.getChannelLeft().getMembers().stream().allMatch(m -> m.getUser().isBot())) {
+        if (event.getChannelLeft().getMembers().stream().filter(m -> m.getUser().isBot()).count() <= 1) {
             bot.unCacheChannel(botsChannel.getIdLong());
             bot.leaveChannel();
         }

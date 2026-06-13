@@ -21,8 +21,16 @@ public class EventListener extends ListenerAdapter {
     @Override
     public void onGuildVoiceUpdate(@NotNull GuildVoiceUpdateEvent event) {
         if (botInstance.isAvailable()) return;
+
         AudioChannelUnion botsChannel = botInstance.getAudioManager().getConnectedChannel();
         AudioChannelUnion oldChannel = event.getChannelLeft();
+
+        if (event.getEntity().getIdLong() == event.getJDA().getSelfUser().getIdLong() && oldChannel != null && event.getChannelJoined() != null) {
+            botInstance.unCacheChannel(oldChannel.getIdLong());
+            botInstance.leaveChannel();
+            return;
+        }
+
         if (botsChannel == null || oldChannel == null) return;
         if (botsChannel.getIdLong() != event.getChannelLeft().getIdLong()) return;
         if (event.getEntity().getIdLong() == event.getJDA().getSelfUser().getIdLong()) {

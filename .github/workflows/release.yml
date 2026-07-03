@@ -21,7 +21,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           java-version: '25'
-          distribution: 'temurin'
+          distribution: 'graalvm-community'
           cache: 'maven'
 
       - name: Build with Maven
